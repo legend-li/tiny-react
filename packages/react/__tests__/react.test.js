@@ -1,7 +1,11 @@
-'use strict';
+"use strict";
 
-const react = require('..');
+const react = require("..");
 
-describe('react', () => {
-    it('needs tests');
+function sum(a, b) {
+  return a + b;
+}
+
+test("react", () => {
+  expect(sum(1, 2)).toBe(3);
 });
