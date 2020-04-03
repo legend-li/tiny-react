@@ -20,5 +20,8 @@
     "hooks": {
       "pre-commit": "pretty-quick --staged"
     }
+  },
+  "scripts": {
+    "commit": "npx git-cz"
   }
 }
