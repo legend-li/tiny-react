@@ -1,15 +1,9 @@
-'use strict';
+"use strict";
 
 module.exports = react;
 
 function react() {
-    // TODO
-
-    
+  // TODO
 }
 
-function app() {
-
-
-
-}
+function app() {}
