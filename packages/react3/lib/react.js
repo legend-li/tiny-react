@@ -18,6 +18,10 @@ const PLACEMENT = "PLACEMENT";
 
 const DELETE = "DELETE";
 
+let wipFiber = null;
+
+let hookIndex = null;
+
 // 判断是否为事件属性
 const isListener = name => name.startsWith("on");
 
@@ -186,6 +190,10 @@ const reconcileChildren = (fiber, elements) => {
 };
 
 const updateFunctionComponent = fiber => {
+  wipFiber = fiber;
+  hookIndex = 0;
+  wipFiber.hooks = [];
+
   const children = [fiber.type(fiber.props)];
 
   // 拿到节点子元素，开始构建 fiber tree
@@ -294,6 +302,42 @@ const workLoop = deadline => {
 
 requestIdleCallback(workLoop);
 
+export const useState = initial => {
+  const oldHook =
+    wipFiber.alternate &&
+    wipFiber.alternate.hooks &&
+    wipFiber.alternate.hooks[hookIndex];
+
+  const hook = {
+    state: oldHook ? oldHook.state : initial,
+    queue: []
+  };
+
+  const actions = oldHook ? oldHook.queue : [];
+
+  actions.forEach(action => {
+    hook.state = action(hook.state);
+  });
+
+  const setState = fn => {
+    hook.queue.push(fn);
+
+    wipRoot = {
+      stateNode: currentRoot.stateNode,
+      props: currentRoot.props,
+      alternate: currentRoot
+    };
+
+    nextUnitOfWork = wipRoot;
+  };
+
+  wipFiber.hooks.push(hook);
+
+  hookIndex++;
+
+  return [hook.state, setState];
+};
+
 export const render = (element, container) => {
   wipRoot = nextUnitOfWork = {
     stateNode: container,
@@ -306,5 +350,6 @@ export const render = (element, container) => {
 
 export default {
   createElement,
-  render
+  render,
+  useState
 };
