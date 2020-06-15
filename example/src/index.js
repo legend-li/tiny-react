@@ -6,6 +6,17 @@ import React, { createElement } from "../../packages/react3/lib/react.js";
 
 const App = props => {
   const [isShow, setIsShow] = React.useState(true);
+  let reducer = (state, action) => {
+    switch (action.type) {
+      case "increment":
+        return action.data;
+      case "decrement":
+        return action.data;
+      default:
+        return state;
+    }
+  };
+  const [counter, dispatchCounter] = React.useReducer(reducer, { num: 0 });
   return (
     <div id="demo">
       {isShow ? <h1>title1:</h1> : <h2>title2:</h2>}
@@ -16,7 +27,23 @@ const App = props => {
       >
         React is so easy!
       </h1>
-      <p style={{ fontSize: 16, color: "#333" }}>Do you think so?</p>
+      <p style={{ fontSize: "16px", color: "#333" }}>Do you think so?</p>
+      <div>{counter.num}</div>
+      <button
+        style={{ display: "inline-block", margin: "5px" }}
+        onClick={() =>
+          dispatchCounter({ type: "increment", data: { num: counter.num + 1 } })
+        }
+      >
+        自增
+      </button>
+      <button
+        onClick={() =>
+          dispatchCounter({ type: "decrement", data: { num: counter.num - 1 } })
+        }
+      >
+        自减
+      </button>
     </div>
   );
 };

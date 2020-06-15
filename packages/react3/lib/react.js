@@ -6,7 +6,7 @@ let nextUnitOfWork = null;
 // 在处理中的 fiber tree
 let wipRoot = null;
 
-// 存储当前 DOM 对于的 fiber tree
+// 存储当前 DOM 对应的 fiber tree
 let currentRoot = null;
 
 // 存储待删除的 fiber 节点
@@ -21,6 +21,8 @@ const DELETE = "DELETE";
 let wipFiber = null;
 
 let hookIndex = null;
+
+const isFn = fn => typeof fn === "function";
 
 // 判断是否为事件属性
 const isListener = name => name.startsWith("on");
@@ -106,7 +108,17 @@ const updateDOM = (stateNode, oldProps, props) => {
     .filter(isAttribute)
     .filter(isNewAttribute)
     .forEach(name => {
-      stateNode[name] = props[name];
+      if (name === "style") {
+        let oldValue = oldProps[name] || {};
+        let newValue = props[name] || {};
+        for (const k in { ...oldValue, ...newValue }) {
+          if (oldValue[k] !== newValue[k]) {
+            stateNode[name][k] = (newValue && newValue[k]) || "";
+          }
+        }
+      } else {
+        stateNode[name] = props[name];
+      }
     });
 };
 
@@ -158,7 +170,8 @@ const reconcileChildren = (fiber, elements) => {
         stateNode: oldFiber.stateNode,
         return: fiber,
         alternate: oldFiber,
-        effectTag: UPDATE
+        effectTag: UPDATE,
+        hooks: oldFiber.hooks
       };
       // 否则，就表示新增 fiber 节点
     } else {
@@ -168,7 +181,8 @@ const reconcileChildren = (fiber, elements) => {
         stateNode: null,
         return: fiber,
         alternate: null,
-        effectTag: PLACEMENT
+        effectTag: PLACEMENT,
+        hooks: []
       };
     }
 
@@ -192,7 +206,6 @@ const reconcileChildren = (fiber, elements) => {
 const updateFunctionComponent = fiber => {
   wipFiber = fiber;
   hookIndex = 0;
-  wipFiber.hooks = [];
 
   const children = [fiber.type(fiber.props)];
 
@@ -302,40 +315,50 @@ const workLoop = deadline => {
 
 requestIdleCallback(workLoop);
 
-export const useState = initial => {
-  const oldHook =
-    wipFiber.alternate &&
-    wipFiber.alternate.hooks &&
-    wipFiber.alternate.hooks[hookIndex];
+export const useState = initState => {
+  return useReducer(null, initState);
+};
 
-  const hook = {
-    state: oldHook ? oldHook.state : initial,
-    queue: []
-  };
+export const useReducer = (reducer, initState) => {
+  let [hook, newHook] = getHook(hookIndex++);
 
-  const actions = oldHook ? oldHook.queue : [];
+  if (newHook) {
+    const setState = val => {
+      let newState = reducer
+        ? reducer(hook.state, val)
+        : isFn(val)
+        ? val(hook.state)
+        : val;
 
-  actions.forEach(action => {
-    hook.state = action(hook.state);
-  });
+      if (newState !== hook.state) {
+        hook.state = newState;
 
-  const setState = fn => {
-    hook.queue.push(fn);
+        wipRoot = {
+          stateNode: currentRoot.stateNode,
+          props: currentRoot.props,
+          alternate: currentRoot
+        };
 
-    wipRoot = {
-      stateNode: currentRoot.stateNode,
-      props: currentRoot.props,
-      alternate: currentRoot
+        nextUnitOfWork = wipRoot;
+      }
     };
+    hook.state = initState;
+    hook.dispatch = setState;
+  }
 
-    nextUnitOfWork = wipRoot;
-  };
+  return [hook.state, hook.dispatch];
+};
 
-  wipFiber.hooks.push(hook);
-
-  hookIndex++;
-
-  return [hook.state, setState];
+const getHook = hookIndex => {
+  let newHook = false;
+  if (hookIndex >= wipFiber.hooks.length) {
+    newHook = true;
+    wipFiber.hooks.push({
+      state: null,
+      dispatch: null
+    });
+  }
+  return [wipFiber.hooks[hookIndex], newHook];
 };
 
 export const render = (element, container) => {
@@ -351,5 +374,6 @@ export const render = (element, container) => {
 export default {
   createElement,
   render,
-  useState
+  useState,
+  useReducer
 };
