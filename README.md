@@ -22,3 +22,10 @@ The purpose is study.
 - useMemo
 
 - useRef
+
+## source code
+[https://github.com/legend-li/tiny-react/blob/master/packages/react/lib/index.js](https://github.com/legend-li/tiny-react/blob/master/packages/react/lib/index.js)
+
+## example
+
+[https://github.com/legend-li/tiny-react/blob/master/example/src/index.js](https://github.com/legend-li/tiny-react/blob/master/example/src/index.js)
