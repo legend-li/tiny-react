@@ -3,14 +3,14 @@ A tiny react library.
 
 The purpose is study.
 
-# base-apis
+## base-apis
 - createElement
 
 - h
 
 - render
 
-# hook-apis
+## hook-apis
 - useState
 
 - useReducer
