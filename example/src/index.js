@@ -6,7 +6,7 @@ import React, {
   useRef,
   useEffect,
   useCallback
-} from "../../packages/react3/lib/index.js";
+} from "../../packages/react/lib/index.js";
 
 const App = props => {
   const [isShow, setIsShow] = React.useState(true);
