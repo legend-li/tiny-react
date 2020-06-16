@@ -1,16 +1,12 @@
 // import React, { createElement, useRef, useEffect, useCallback } from 'react'
 // import { render } from 'react-dom'
-// import React, { createElement } from '../../packages/react/lib/react.js';
-// import React, { createElement } from '../../packages/react2/lib/react.js';
-// import React, { createElement } from "../../packages/react2-1/lib/react.js";
 import React, {
   render,
   createElement,
   useRef,
   useEffect,
   useCallback
-} from "../../packages/react3/lib/react.js";
-// import React, { createElement } from '../../packages/react-fc/lib/react.js';
+} from "../../packages/react3/lib/index.js";
 
 const App = props => {
   const [isShow, setIsShow] = React.useState(true);
