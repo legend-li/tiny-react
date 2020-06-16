@@ -40,8 +40,11 @@ const createTextElement = text => {
   };
 };
 
-export const createElement = (type, props = {}, ...children) => {
-  let domTree = {
+export const createElement = (type, props, ...children) => {
+  props = props || {};
+  let ref = props.ref || null;
+  delete props.ref;
+  return {
     type,
     props: {
       ...props,
@@ -49,9 +52,9 @@ export const createElement = (type, props = {}, ...children) => {
         children.map(child =>
           typeof child === "object" ? child : createTextElement(child)
         ) || []
-    }
+    },
+    ref
   };
-  return domTree;
 };
 
 const createDOM = fiber => {
@@ -168,6 +171,7 @@ const reconcileChildren = (fiber, elements) => {
         type: oldFiber.type,
         props: element.props,
         stateNode: oldFiber.stateNode,
+        ref: element.ref,
         return: fiber,
         alternate: oldFiber,
         effectTag: UPDATE,
@@ -179,6 +183,7 @@ const reconcileChildren = (fiber, elements) => {
         type: element.type,
         props: element.props,
         stateNode: null,
+        ref: element.ref,
         return: fiber,
         alternate: null,
         effectTag: PLACEMENT,
@@ -227,9 +232,7 @@ const updateHostComponent = fiber => {
 
 const performanUnitOfWork = fiber => {
   // 是否是函数组件
-  const isFunctionComponent = fiber.type instanceof Function;
-
-  if (isFunctionComponent) {
+  if (isFn(fiber.type)) {
     updateFunctionComponent(fiber);
   } else {
     updateHostComponent(fiber);
@@ -261,19 +264,65 @@ const commitDeletion = (fiber, domParent) => {
   }
 };
 
+const cleanup = e => e.effectCleanup && e.effectCleanup();
+
+const effect = e => {
+  const res = e.effect();
+  if (isFn(res)) e.effectCleanup = res;
+};
+
+const planWork = cb => {
+  if (!cb) return;
+  if (requestAnimationFrame) {
+    return requestAnimationFrame(cb);
+  } else {
+    return setTimeout(cb);
+  }
+};
+
+function refer(ref, dom) {
+  if (ref) isFn(ref) ? ref(dom) : (ref.current = dom);
+}
+
+const cleanupRef = fiber => {
+  if (fiber) {
+    refer(fiber.ref, null);
+    let fiberSibling = fiber.sibling;
+    while (fiberSibling) {
+      refer(fiberSibling.ref, null);
+      fiberSibling = fiberSibling.sibling;
+    }
+    cleanupRef(fiber.child);
+  }
+};
+
 const commitWork = fiber => {
   if (!fiber) return;
+  const {
+    stateNode,
+    effectTag,
+    hooks,
+    type,
+    props,
+    child,
+    sibling,
+    alternate,
+    ref
+  } = fiber;
   let domParentFiber = fiber.return;
   while (!domParentFiber.stateNode) {
     domParentFiber = domParentFiber.return;
   }
   const domParent = domParentFiber.stateNode;
-  if (fiber.effectTag === DELETE) {
+  if (effectTag === DELETE) {
+    hooks && hooks.filter(h => h.effectCleanup).forEach(cleanup);
+    cleanupRef(fiber);
     commitDeletion(fiber, domParent);
+    refer(ref, null);
     return;
-  } else if (fiber.effectTag === PLACEMENT && fiber.stateNode) {
+  } else if (effectTag === PLACEMENT && stateNode) {
     let after;
-    let nextSibling = fiber.sibling;
+    let nextSibling = sibling;
     while (nextSibling) {
       if (nextSibling.effectTag === UPDATE) {
         after = nextSibling.stateNode;
@@ -283,15 +332,25 @@ const commitWork = fiber => {
       }
     }
     if (after) {
-      domParent.insertBefore(fiber.stateNode, after);
+      domParent.insertBefore(stateNode, after);
     } else {
-      domParent.appendChild(fiber.stateNode);
+      domParent.appendChild(stateNode);
     }
-  } else if (fiber.effectTag === UPDATE && fiber.stateNode) {
-    updateDOM(fiber.stateNode, fiber.alternate.props, fiber.props);
+  } else if (effectTag === UPDATE && stateNode) {
+    updateDOM(stateNode, alternate.props, props);
   }
-  commitWork(fiber.child);
-  commitWork(fiber.sibling);
+  if (isFn(type)) {
+    if (hooks) {
+      planWork(() => {
+        let activeEffectHooks = hooks.filter(h => h.effectDepChanged);
+        activeEffectHooks.forEach(cleanup);
+        activeEffectHooks.forEach(effect);
+      });
+    }
+  }
+  commitWork(child);
+  commitWork(sibling);
+  refer(ref, stateNode);
 };
 
 const commitRoot = () => {
@@ -349,17 +408,57 @@ export const useReducer = (reducer, initState) => {
   return [hook.state, hook.dispatch];
 };
 
+export const useMemo = (cb, deps) => {
+  let [hook] = getHook(hookIndex++);
+  if (isChanged(hook.deps, deps)) {
+    hook.deps = deps;
+    return (hook.cb = cb());
+  }
+  return hook.cb;
+};
+
+export const useCallback = (cb, deps) => {
+  return useMemo(() => cb, deps);
+};
+
+export const useRef = current => {
+  let [hook, newHook] = getHook(hookIndex++);
+  if (newHook) {
+    hook.ref = { current };
+  }
+  return hook.ref;
+};
+
+export const useEffect = (effect, deps) => {
+  let [hook] = getHook(hookIndex++);
+  if (isChanged(hook.deps, deps)) {
+    hook.deps = deps;
+    hook.effect = effect;
+    hook.effectDepChanged = true;
+  }
+};
+
 const getHook = hookIndex => {
   let newHook = false;
   if (hookIndex >= wipFiber.hooks.length) {
     newHook = true;
     wipFiber.hooks.push({
       state: null,
-      dispatch: null
+      dispatch: null,
+      deps: null,
+      cb: null,
+      effect: null,
+      effectCleanup: null,
+      effectDepChanged: false,
+      ref: null
     });
   }
   return [wipFiber.hooks[hookIndex], newHook];
 };
+
+export function isChanged(a, b) {
+  return !a || b.some((arg, index) => arg !== a[index]);
+}
 
 export const render = (element, container) => {
   wipRoot = nextUnitOfWork = {
@@ -375,5 +474,9 @@ export default {
   createElement,
   render,
   useState,
-  useReducer
+  useReducer,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef
 };

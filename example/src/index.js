@@ -1,7 +1,15 @@
+// import React, { createElement, useRef, useEffect, useCallback } from 'react'
+// import { render } from 'react-dom'
 // import React, { createElement } from '../../packages/react/lib/react.js';
 // import React, { createElement } from '../../packages/react2/lib/react.js';
 // import React, { createElement } from "../../packages/react2-1/lib/react.js";
-import React, { createElement } from "../../packages/react3/lib/react.js";
+import React, {
+  render,
+  createElement,
+  useRef,
+  useEffect,
+  useCallback
+} from "../../packages/react3/lib/react.js";
 // import React, { createElement } from '../../packages/react-fc/lib/react.js';
 
 const App = props => {
@@ -17,8 +25,19 @@ const App = props => {
     }
   };
   const [counter, dispatchCounter] = React.useReducer(reducer, { num: 0 });
+  const divRef = useRef(null);
+  const counterRef = useRef(null);
+  useEffect(() => {
+    console.log("divRef", divRef.current);
+    console.log("counterRef:", counterRef.current);
+  });
+  const pRef = useCallback(node => {
+    if (node !== null) {
+      console.log("p.height:", node.getBoundingClientRect().height);
+    }
+  }, []);
   return (
-    <div id="demo">
+    <div id="demo" ref={divRef}>
       {isShow ? <h1>title1:</h1> : <h2>title2:</h2>}
       <h1
         onClick={() => {
@@ -27,8 +46,10 @@ const App = props => {
       >
         React is so easy!
       </h1>
-      <p style={{ fontSize: "16px", color: "#333" }}>Do you think so?</p>
-      <div>{counter.num}</div>
+      <p ref={pRef} style={{ fontSize: "16px", color: "#333" }}>
+        Do you think so?
+      </p>
+      <div ref={counterRef}>{counter.num}</div>
       <button
         style={{ display: "inline-block", margin: "5px" }}
         onClick={() =>
@@ -48,7 +69,7 @@ const App = props => {
   );
 };
 
-React.render(<App />, document.getElementById("root"));
+render(<App />, document.getElementById("root"));
 
 // const App = (props) => {
 //   return (
